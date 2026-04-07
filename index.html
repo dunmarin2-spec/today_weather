@@ -37,10 +37,9 @@
             display: flex; justify-content: space-around;
             background: #f8fafc; padding: 15px; border-radius: 15px; margin-bottom: 20px;
         }
-        .detail-item { font-size: 0.9rem; color: #334155; }
-        .detail-item b { display: block; font-size: 1.1rem; color: var(--primary); }
+        .detail-item { font-size: 0.85rem; color: #334155; }
+        .detail-item b { display: block; font-size: 1.1rem; color: var(--primary); margin-top: 5px; }
 
-        /* 후원 및 검색 */
         .support-btn {
             background: var(--kakao); color: #3c1e1e; text-decoration: none;
             display: flex; align-items: center; justify-content: center;
@@ -59,27 +58,27 @@
 
     <div class="container">
         <div class="index-card" id="card-border">
-            <div style="font-size: 0.9rem; color: #64748b;">오늘의 방수/도장 작업지수</div>
+            <div style="font-size: 0.9rem; color: #64748b;">현 위치 방수/도장 작업지수</div>
             <div class="index-score" id="score">--</div>
-            <div class="index-status" id="status">분석 중...</div>
-            <div class="index-desc" id="desc">현장 기상 데이터를 분석하고 있습니다.</div>
+            <div class="index-status" id="status">위치 확인 중...</div>
+            <div class="index-desc" id="desc">GPS를 통해 현장 데이터를 불러오는 중입니다.</div>
             
             <div class="detail-box">
-                <div class="detail-item">현재기온<b id="temp">--℃</b></div>
-                <div class="detail-item">현재습도<b id="humi">--%</b></div>
-                <div class="detail-item">비 소식<b id="rain">--</b></div>
+                <div class="detail-item">현 기온<b id="temp">--℃</b></div>
+                <div class="detail-item">현 습도<b id="humi">--%</b></div>
+                <div class="detail-item">비 올 확률<b id="rain">--%</b></div>
             </div>
-            <button onclick="location.reload()" style="width:100%; padding:12px; border-radius:10px; border:1px solid #ddd; background:none; cursor:pointer;">정보 업데이트</button>
+            <button onclick="getLocation()" style="width:100%; padding:12px; border-radius:10px; border:1px solid #ddd; background:none; cursor:pointer; font-weight:bold;">새로고침 (위치허용 필수)</button>
         </div>
 
         <a href="https://qr.kakaopay.com/FRK8J0SAD" target="_blank" class="support-btn">
-            ☕ 현장 전문가를 위한 커피 후원 (카카오)
+            ☕ 현장 전문가용 앱 후원하기 (카카오)
         </a>
 
         <div class="coupang-search-box">
             <form action="https://www.coupang.com/np/search" method="get" target="_blank" class="search-form">
                 <input type="hidden" name="channel" value="AF4757238">
-                <input type="text" name="q" placeholder="방수자재 / 우레탄 / 도장공구 검색" class="search-input">
+                <input type="text" name="q" placeholder="방수자재 / 우레탄 / 안전화 검색" class="search-input">
                 <button type="submit" class="search-button">검색</button>
             </form>
             <p style="font-size: 10px; color: #94a3b8; margin-top: 12px; text-align: center;">"이 포스팅은 쿠팡 파트너스 활동의 일환으로 수수료를 제공받습니다."</p>
@@ -87,48 +86,70 @@
     </div>
 
     <script>
-        async function analyzeWeather() {
-            try {
-                // 꼼수 로직: 기상청 혹은 날씨 데이터를 텍스트로 분석
-                const res = await fetch('https://m.weather.naver.com/');
-                const html = await res.text();
-                
-                // 임의 수치 추출 (실제로는 API 권장이나 꼼수 시뮬레이션)
-                let temp = 18; // 예시 온도
-                let humi = 65; // 예시 습도
-                let rain = html.includes('비') ? "있음" : "없음";
-
-                // 전문가 로직 적용
-                let score = 100;
-                let status = "작업 최적";
-                let desc = "기온, 습도 모두 완벽합니다. 오늘 작업 진행하세요!";
-                let color = "var(--safe)";
-
-                if (rain === "있음") {
-                    score = 20; status = "작업 중단"; desc = "비 소식이 있습니다. 방수/도장 작업 시 하자가 발생할 수 있습니다."; color = "var(--danger)";
-                } else if (humi > 80) {
-                    score = 40; status = "작업 주의"; desc = "습도가 너무 높습니다. 건조가 늦어지거나 들뜸 현상이 생길 수 있습니다."; color = "var(--warn)";
-                } else if (temp < 5) {
-                    score = 30; status = "작업 금지"; desc = "영하권 혹은 저온으로 인해 양생이 불가능합니다."; color = "var(--danger)";
-                }
-
-                // 화면 업데이트
-                document.getElementById('score').innerText = score;
-                document.getElementById('score').style.color = color;
-                document.getElementById('status').innerText = status;
-                document.getElementById('status').style.color = color;
-                document.getElementById('desc').innerText = desc;
-                document.getElementById('card-border').style.borderColor = color;
-                document.getElementById('temp').innerText = temp + "℃";
-                document.getElementById('humi').innerText = humi + "%";
-                document.getElementById('rain').innerText = rain;
-
-            } catch (e) {
-                document.getElementById('status').innerText = "데이터 연결 확인";
-                document.getElementById('desc').innerText = "네트워크를 확인하거나 아래 버튼으로 네이버 날씨를 직접 보세요.";
+        // GPS 위치 가져오기
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(fetchWeather, showError);
+            } else {
+                alert("GPS를 지원하지 않는 브라우저입니다.");
             }
         }
-        window.onload = analyzeWeather;
+
+        async function fetchWeather(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            
+            try {
+                // 공공 데이터 브릿지 사용 (무료/키 불필요/CORS 없음)
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation&hourly=precipitation_probability&timezone=auto&forecast_days=1`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                const temp = data.current.temperature_2m;
+                const humi = data.current.relative_humidity_2m;
+                const rainProb = data.hourly.precipitation_probability[new Date().getHours()];
+                const isRaining = data.current.precipitation > 0;
+
+                updateUI(temp, humi, rainProb, isRaining);
+            } catch (e) {
+                document.getElementById('status').innerText = "데이터 오류";
+                document.getElementById('desc').innerText = "날씨 정보를 가져오지 못했습니다.";
+            }
+        }
+
+        function updateUI(temp, humi, rainProb, isRaining) {
+            let score = 100;
+            let status = "작업 최적";
+            let desc = "기온, 습도 모두 완벽합니다. 오늘 작업 진행하세요!";
+            let color = "var(--safe)";
+
+            // 형님의 방수 전문가 로직 적용
+            if (isRaining || rainProb > 40) {
+                score = 10; status = "작업 금지"; desc = "비 소식이 있습니다. 방수/도장 작업 시 박리 하자가 발생합니다!"; color = "var(--danger)";
+            } else if (humi > 80) {
+                score = 40; status = "습도 주의"; desc = "습도가 너무 높습니다. 완전 건조가 어려워 들뜸 현상이 생길 수 있습니다."; color = "var(--warn)";
+            } else if (temp < 5) {
+                score = 30; status = "저온 주의"; desc = "기온이 너무 낮아 양생이 불가능합니다. 열풍기 작업이 필요합니다."; color = "var(--danger)";
+            } else if (temp > 35) {
+                score = 50; status = "고온 주의"; desc = "너무 뜨겁습니다. 도료가 너무 빨리 말라 작업성이 떨어집니다."; color = "var(--warn)";
+            }
+
+            document.getElementById('score').innerText = score;
+            document.getElementById('score').style.color = color;
+            document.getElementById('status').innerText = status;
+            document.getElementById('status').style.color = color;
+            document.getElementById('desc').innerText = desc;
+            document.getElementById('card-border').style.borderColor = color;
+            document.getElementById('temp').innerText = temp + "℃";
+            document.getElementById('humi').innerText = humi + "%";
+            document.getElementById('rain').innerText = rainProb + "%";
+        }
+
+        function showError(error) {
+            alert("위치 정보를 허용해주셔야 동네 날씨 분석이 가능합니다.");
+        }
+
+        window.onload = getLocation;
     </script>
 </body>
 </html>
